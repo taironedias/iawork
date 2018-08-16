@@ -22,6 +22,7 @@ SCORE          = 0                      # pontuacao do jogador
 
 main_dir = os.path.split(os.path.abspath(__file__))[0]
 
+# Função responsável para carregar uma imagem na tela
 def load_image(file):
     "Carregando as imagens..."
     file = os.path.join(main_dir, 'data', file)
@@ -31,6 +32,8 @@ def load_image(file):
         raise SystemExit('Erro ao carregar imagem "%s" %s'%(file, pygame.get_error()))
     return surface.convert()
 
+
+# Função responsável para carregar as imagens na tela
 def load_images(*files):
     imgs = []
     for file in files:
@@ -38,18 +41,18 @@ def load_images(*files):
     return imgs
 
 
-class dummysound:
+class somGame:
     def play(self): pass
 
 def load_sound(file):
-    if not pygame.mixer: return dummysound()
+    if not pygame.mixer: return somGame()
     file = os.path.join(main_dir, 'data', file)
     try:
         sound = pygame.mixer.Sound(file)
         return sound
     except pygame.error:
         print ('Incapaz de carregar, %s' % file)
-    return dummysound()
+    return somGame()
 
 
 
@@ -61,9 +64,9 @@ uma função "move" em vez de update, já que é passada informação extra
 sobre o teclado.
 '''
 
-
+# Classe de um agente do jogo, neste caso, o jogador
 class Player(pygame.sprite.Sprite):
-    speed = 10
+    vel = 10
     bounce = 24
     gun_offset = -11
     images = []
@@ -77,7 +80,7 @@ class Player(pygame.sprite.Sprite):
 
     def move(self, direction):
         if direction: self.facing = direction
-        self.rect.move_ip(direction*self.speed, 0)
+        self.rect.move_ip(direction*self.vel, 0)
         self.rect = self.rect.clamp(SCREENRECT)
         if direction < 0:
             self.image = self.images[0]
@@ -85,20 +88,25 @@ class Player(pygame.sprite.Sprite):
             self.image = self.images[1]
         self.rect.top = self.origtop - (self.rect.left//self.bounce%2)
 
+    # retorna a posicao do agente no momento que atirou
     def gunpos(self):
+        # print 'self.facing = '+str(self.facing)
+        # print 'self.gun_offset = '+str(self.gun_offset)
+        # print 'self.rect.centerx = '+str(self.rect.centerx)
         pos = self.facing*self.gun_offset + self.rect.centerx
         return pos, self.rect.top
 
 
 class Curinga(pygame.sprite.Sprite):
-    speed = 13
-    animcycle = 12
+    vel = 13
+    #taxa de mudanca das imagens entre os agentes automatos
+    taxaMImg = 100        
     images = []
     def __init__(self):
         pygame.sprite.Sprite.__init__(self, self.containers)
         self.image = self.images[0]
         self.rect = self.image.get_rect()
-        self.facing = random.choice((-1,1)) * Curinga.speed
+        self.facing = random.choice((-1,1)) * Curinga.vel
         self.frame = 0
         if self.facing < 0:
             self.rect.right = SCREENRECT.right
@@ -106,11 +114,11 @@ class Curinga(pygame.sprite.Sprite):
     def update(self):
         self.rect.move_ip(self.facing, 0)
         if not SCREENRECT.contains(self.rect):
-            self.facing = -self.facing;
+            self.facing = -self.facing
             self.rect.top = self.rect.bottom + 1
             self.rect = self.rect.clamp(SCREENRECT)
         self.frame = self.frame + 1
-        self.image = self.images[self.frame//self.animcycle%3]
+        self.image = self.images[self.frame//self.taxaMImg%3]
 
 
 class Explosion(pygame.sprite.Sprite):
@@ -130,7 +138,7 @@ class Explosion(pygame.sprite.Sprite):
 
 
 class Shot(pygame.sprite.Sprite):
-    speed = -11
+    vel = -11
     images = []
     def __init__(self, pos):
         pygame.sprite.Sprite.__init__(self, self.containers)
@@ -138,13 +146,13 @@ class Shot(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(midbottom=pos)
 
     def update(self):
-        self.rect.move_ip(0, self.speed)
+        self.rect.move_ip(0, self.vel)
         if self.rect.top <= 0:
             self.kill()
 
 
 class Bomb(pygame.sprite.Sprite):
-    speed = 9
+    vel = 9
     images = []
     def __init__(self, curinga):
         pygame.sprite.Sprite.__init__(self, self.containers)
@@ -153,7 +161,7 @@ class Bomb(pygame.sprite.Sprite):
                     curinga.rect.move(0,5).midbottom)
 
     def update(self):
-        self.rect.move_ip(0, self.speed)
+        self.rect.move_ip(0, self.vel)
         if self.rect.bottom >= 470:
             Explosion(self)
             self.kill()
@@ -267,7 +275,7 @@ def main(winstyle = 0):
 
         #handle player input
         direction = keystate[K_RIGHT] - keystate[K_LEFT]
-        print 'direction = '+str(direction)
+        # print 'direction = '+str(direction)
         # extremos da minha tela -0.5 e 0.5
         player.move(direction)
         direction += 10
