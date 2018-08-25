@@ -7,18 +7,19 @@ import random, os.path
 import pygame
 from pygame.locals import *
 
-#Analisa a possibilidade de carregar imagens em BMP
-if not pygame.image.get_extended():
-    raise SystemExit("O modulo da imagem estentida eh obrigatorio")
-
+'''
+---> Para um nível easy, aumente a constante MAX_TIROS e diminua as constantes CURINGA_ODDS e BOMBA_ODDS.
+---> Para um nível moderate, deixe o padrão: MAX_TIROS = 3 , CURINGA_ODDS = 22 e BOMBA_ODDS = 60
+---> Para um nível hard, diminua a constante MAX_TIROS e aumente as constantes CURINGA_ODDS e BOMBA_ODDS.
+'''
 
 #Constantes do jogo
-MAX_SHOTS      = 3                      # Qtd máxima de balas atiradas pelo jogador
-CURINGA_ODDS     = 22                     # Probabilidade de aparecer um novo inimigo
-BOMB_ODDS      = 60                     # Probabilidade de bombas cairem
-CURINGA_RELOAD   = 12                     # frames entre novos inimigos
-SCREENRECT     = Rect(0, 0, 640, 480)   # resolucao da tela
-SCORE          = 0                      # pontuacao do jogador
+MAX_TIROS       = 4                      # Qtd máxima de balas atiradas pelo jogador
+CURINGA_ODDS    = 20                     # Probabilidade de aparecer um novo inimigo
+BOMBA_ODDS      = 60                     # Probabilidade de bombas cairem
+CURINGA_RELOAD  = 12                     # Frames entre novos inimigos
+SCREENRECT      = Rect(0, 0, 640, 480)   # Resolucao da tela
+SCORE           = 0                      # Pontuacao do jogador
 
 main_dir = os.path.split(os.path.abspath(__file__))[0]
 
@@ -39,21 +40,6 @@ def load_images(*files):
     for file in files:
         imgs.append(load_image(file))
     return imgs
-
-
-class somGame:
-    def play(self): pass
-
-def load_sound(file):
-    if not pygame.mixer: return somGame()
-    file = os.path.join(main_dir, 'data', file)
-    try:
-        sound = pygame.mixer.Sound(file)
-        return sound
-    except pygame.error:
-        print ('Incapaz de carregar, %s' % file)
-    return somGame()
-
 
 
 '''
@@ -121,7 +107,7 @@ class Curinga(pygame.sprite.Sprite):
         self.image = self.images[self.frame//self.taxaMImg%3]
 
 
-class Explosion(pygame.sprite.Sprite):
+class Explosao(pygame.sprite.Sprite):
     defaultlife = 12
     animcycle = 3
     images = []
@@ -137,7 +123,7 @@ class Explosion(pygame.sprite.Sprite):
         if self.life <= 0: self.kill()
 
 
-class Shot(pygame.sprite.Sprite):
+class Tiro(pygame.sprite.Sprite):
     vel = -11
     images = []
     def __init__(self, pos):
@@ -151,28 +137,27 @@ class Shot(pygame.sprite.Sprite):
             self.kill()
 
 
-class Bomb(pygame.sprite.Sprite):
+class Bomba(pygame.sprite.Sprite):
     vel = 9
     images = []
     def __init__(self, curinga):
         pygame.sprite.Sprite.__init__(self, self.containers)
         self.image = self.images[0]
-        self.rect = self.image.get_rect(midbottom=
-                    curinga.rect.move(0,5).midbottom)
+        self.rect = self.image.get_rect(midbottom = curinga.rect.move(0,5).midbottom)
 
     def update(self):
         self.rect.move_ip(0, self.vel)
         if self.rect.bottom >= 470:
-            Explosion(self)
+            Explosao(self)
             self.kill()
 
 
 class Score(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
-        self.font = pygame.font.Font(None, 20)
+        self.font = pygame.font.Font(None, 24)
         self.font.set_italic(1)
-        self.color = Color('white')
+        self.color = Color('red')
         self.lastscore = -1
         self.update()
         self.rect = self.image.get_rect().move(10, 450)
@@ -180,154 +165,166 @@ class Score(pygame.sprite.Sprite):
     def update(self):
         if SCORE != self.lastscore:
             self.lastscore = SCORE
-            msg = "Pontos: %d" % SCORE
+            msg = "Pontos: "+str(SCORE)
             self.image = self.font.render(msg, 0, self.color)
 
+# Funcao responsavel pelo aumento da dificuldade
+def upLevelGame():
+    global MAX_TIROS, CURINGA_ODDS, BOMBA_ODDS
+    ''' Dependendo da potuacao, determinadas configuracoes eh realizada de forma que aumente
+    a dificuldade do jogo '''
+    if SCORE == 50:
+        if MAX_TIROS > 0 and BOMBA_ODDS <= 100:
+            MAX_TIROS = MAX_TIROS - 1
+            CURINGA_ODDS = CURINGA_ODDS + 5
+            BOMBA_ODDS = BOMBA_ODDS + 10
 
+    elif SCORE == 200:
+        if MAX_TIROS > 0 and BOMBA_ODDS <= 100:
+            MAX_TIROS = MAX_TIROS - 1
+            CURINGA_ODDS = CURINGA_ODDS + 10
+            BOMBA_ODDS = BOMBA_ODDS + 20
+    
+    elif SCORE == 400:
+        if MAX_TIROS > 0 and BOMBA_ODDS <= 100:
+            MAX_TIROS = 1
+            CURINGA_ODDS = CURINGA_ODDS + 11
+            BOMBA_ODDS = 100
+    
+# Funcao responsavel pelo aumento da pontuacao
+def levelScore():
+    global SCORE
+    if SCORE < 50 :
+        SCORE = SCORE + 1
+    elif SCORE < 200 :
+        SCORE = SCORE + 2
+    else :
+        SCORE = SCORE + 5
 
+    upLevelGame()
+
+# Funcao principal do game
 def main(winstyle = 0):
-    # Initialize pygame
     pygame.init()
     if pygame.mixer and not pygame.mixer.get_init():
         print ('Warning, no sound')
         pygame.mixer = None
 
-    # Set the display mode
-    winstyle = 0  # |FULLSCREEN
+    # Configurando o display
+    winstyle = 0
     bestdepth = pygame.display.mode_ok(SCREENRECT.size, winstyle, 32)
     screen = pygame.display.set_mode(SCREENRECT.size, winstyle, bestdepth)
 
-    #Load images, assign to sprite classes
-    #(do this before the classes are used, after screen setup)
+    #Carregando todas as possíveis imagens que o jogo utilizará
     img = load_image('player.gif')
     Player.images = [img, pygame.transform.flip(img, 1, 0)]
     img = load_image('explosion1.gif')
-    Explosion.images = [img, pygame.transform.flip(img, 1, 1)]
+    Explosao.images = [img, pygame.transform.flip(img, 1, 1)]
     Curinga.images = load_images('curinga1.gif', 'curinga2.gif', 'curinga3.gif')
-    Bomb.images = [load_image('bomb.gif')]
-    Shot.images = [load_image('shot.gif')]
+    Bomba.images = [load_image('bomb.gif')]
+    Tiro.images = [load_image('shot.gif')]
 
-    #decorate the game window
+    # Janela do jogo
     icon = pygame.transform.scale(Curinga.images[0], (32, 32))
     pygame.display.set_icon(icon)
-    pygame.display.set_caption('Batman vs Curinga')
+    pygame.display.set_caption('Batman vs Curinga - Trabalho IA')
     pygame.mouse.set_visible(0)
 
-    #create the background, tile the bgd image
-    bgdtile = load_image('city.gif')
+    bgdtile = load_image('city.gif') # plano de fundo
     background = pygame.Surface(SCREENRECT.size)
     for x in range(0, SCREENRECT.width, bgdtile.get_width()):
         background.blit(bgdtile, (x, 0))
     screen.blit(background, (0,0))
     pygame.display.flip()
 
-    #load the sound effects
-    boom_sound = load_sound('boom.wav')
-    shoot_sound = load_sound('car_door.wav')
-    if pygame.mixer:
-        music = os.path.join(main_dir, 'data', 'house_lo.wav')
-        pygame.mixer.music.load(music)
-        pygame.mixer.music.play(-1)
-
-    # Initialize Game Groups
+    # Carrega os Groups dos eventos do game
     curingas = pygame.sprite.Group()
-    shots = pygame.sprite.Group()
-    bombs = pygame.sprite.Group()
+    tiros = pygame.sprite.Group()
+    bombas = pygame.sprite.Group()
     all = pygame.sprite.RenderUpdates()
     lastcuringa = pygame.sprite.GroupSingle()
 
-    #assign default groups to each sprite class
+    # Atribui grupos default para cada classe de sprite
     Player.containers = all
     Curinga.containers = curingas, all, lastcuringa
-    Shot.containers = shots, all
-    Bomb.containers = bombs, all
-    Explosion.containers = all
+    Tiro.containers = tiros, all
+    Bomba.containers = bombas, all
+    Explosao.containers = all
     Score.containers = all
 
-    #Create Some Starting Values
-    global score
+    # Criando alguns valores iniciais
+    global SCORE
     curingareload = CURINGA_RELOAD
     kills = 0
     clock = pygame.time.Clock()
-
-    #initialize our starting sprites
-    global SCORE
     player = Player()
-    Curinga() #note, this 'lives' because it goes into a sprite group
+    Curinga()
     if pygame.font:
         all.add(Score())
 
 
-    while player.alive():
+    while player.alive(): # loop enquanto o jogador estiver vivo
 
-        #get input
+        # loop para a entrada de teclado
         for event in pygame.event.get():
-            if event.type == QUIT or \
-                (event.type == KEYDOWN and event.key == K_ESCAPE):
+            if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE):
                     return
         keystate = pygame.key.get_pressed()
 
-        # clear/erase the last drawn sprites
+        # Limpa os ultimos desenhos na tela
         all.clear(screen, background)
 
-        #update all the sprites
+        # Atualiza todos os sprites
         all.update()
 
-        #handle player input
+        # Movimentacao do player, pela entrada do teclado
         direction = keystate[K_RIGHT] - keystate[K_LEFT]
-        # print 'direction = '+str(direction)
         # extremos da minha tela -0.5 e 0.5
         player.move(direction)
         direction += 10
-        firing = keystate[K_SPACE]
-        if not player.reloading and firing and len(shots) < MAX_SHOTS:
-            Shot(player.gunpos())
-            shoot_sound.play()
+        firing = keystate[K_SPACE] # Entrada do teclado para soltar um tiro
+        if not player.reloading and firing and len(tiros) < MAX_TIROS:
+            Tiro(player.gunpos())
         player.reloading = firing
 
         # Criando um novo curinga
         if curingareload:
             curingareload = curingareload - 1
-        elif not int(random.random() * CURINGA_ODDS):
+        elif not int(random.randint(0,5) * CURINGA_ODDS):
             Curinga()
             curingareload = CURINGA_RELOAD
+        
+        # Curinga soltando bombas
+        if lastcuringa and not int(random.random() * BOMBA_ODDS):
+            Bomba(lastcuringa.sprite)
 
-        # Drop bombs
-        if lastcuringa and not int(random.random() * BOMB_ODDS):
-            Bomb(lastcuringa.sprite)
-
-        # Detect collisions
+        # Detectando explosao
         for curinga in pygame.sprite.spritecollide(player, curingas, 1):
-            boom_sound.play()
-            Explosion(curinga)
-            Explosion(player)
-            SCORE = SCORE + 1
+            Explosao(curinga)
+            Explosao(player)
+            levelScore()
             player.kill()
 
-        for curinga in pygame.sprite.groupcollide(shots, curingas, 1, 1).keys():
-            boom_sound.play()
-            Explosion(curinga)
-            SCORE = SCORE + 1
+        for curinga in pygame.sprite.groupcollide(tiros, curingas, 1, 1).keys():
+            Explosao(curinga)
+            levelScore()
 
-        for bomb in pygame.sprite.spritecollide(player, bombs, 1):
-            boom_sound.play()
-            Explosion(player)
-            Explosion(bomb)
+        for bomba in pygame.sprite.spritecollide(player, bombas, 1):
+            Explosao(player)
+            Explosao(bomba)
             player.kill()
 
-        #draw the scene
+        # Desenhando na tela todas as cenas
         dirty = all.draw(screen)
         pygame.display.update(dirty)
 
-        #cap the framerate
+        #Taxa de quadro
         clock.tick(40)
 
-    if pygame.mixer:
-        pygame.mixer.music.fadeout(1000)
     pygame.time.wait(1000)
     pygame.quit()
 
 
 
-#call the "main" function if running this script
-if __name__ == '__main__': main()
+# Chama a funcao main no script de execucao principal
+main()
