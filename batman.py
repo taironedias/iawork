@@ -1,25 +1,21 @@
-#!/usr/bin/env python
 #coding:utf-8
-
+# modulo random: necessario para gerar eventos aleatorios no jogo
+# modulo os.path: necessario para direcionar a pasta que contem os arquivos de imagem
 import random, os.path
 
-#importa os modulos do pygame
+# importa os modulos do pygame, necessario para criar o jogo
 import pygame
 from pygame.locals import *
 
-'''
----> Para um nível easy, aumente a constante MAX_TIROS e diminua as constantes CURINGA_ODDS e BOMBA_ODDS.
----> Para um nível moderate, deixe o padrão: MAX_TIROS = 3 , CURINGA_ODDS = 22 e BOMBA_ODDS = 60
----> Para um nível hard, diminua a constante MAX_TIROS e aumente as constantes CURINGA_ODDS e BOMBA_ODDS.
-'''
 
-#Constantes do jogo
-MAX_TIROS       = 4                      # Qtd máxima de balas atiradas pelo jogador
+#Variaveis do jogo
+MAX_TIROS       = 4                      # Qtd maxima de balas atiradas pelo jogador
 CURINGA_ODDS    = 20                     # Probabilidade de aparecer um novo inimigo
 BOMBA_ODDS      = 60                     # Probabilidade de bombas cairem
 CURINGA_RELOAD  = 12                     # Frames entre novos inimigos
 SCREENRECT      = Rect(0, 0, 640, 480)   # Resolucao da tela
 SCORE           = 0                      # Pontuacao do jogador
+STR_LEVEL       = "easy"                 # Texto do level que aparecerá na tela
 
 main_dir = os.path.split(os.path.abspath(__file__))[0]
 
@@ -76,13 +72,10 @@ class Player(pygame.sprite.Sprite):
 
     # retorna a posicao do agente no momento que atirou
     def gunpos(self):
-        # print 'self.facing = '+str(self.facing)
-        # print 'self.gun_offset = '+str(self.gun_offset)
-        # print 'self.rect.centerx = '+str(self.rect.centerx)
         pos = self.facing*self.gun_offset + self.rect.centerx
         return pos, self.rect.top
 
-
+# Classe dos agentes automatos do jogo
 class Curinga(pygame.sprite.Sprite):
     vel = 13
     #taxa de mudanca das imagens entre os agentes automatos
@@ -106,7 +99,7 @@ class Curinga(pygame.sprite.Sprite):
         self.frame = self.frame + 1
         self.image = self.images[self.frame//self.taxaMImg%3]
 
-
+# Classe da explosao (choque entre Bomba e jogador, inimigo e jogador, tiro e inimigo, bomba e terreo)
 class Explosao(pygame.sprite.Sprite):
     defaultlife = 12
     animcycle = 3
@@ -122,7 +115,7 @@ class Explosao(pygame.sprite.Sprite):
         self.image = self.images[self.life//self.animcycle%2]
         if self.life <= 0: self.kill()
 
-
+# Classe de lancamento de um tiro pelo jogador
 class Tiro(pygame.sprite.Sprite):
     vel = -11
     images = []
@@ -136,7 +129,7 @@ class Tiro(pygame.sprite.Sprite):
         if self.rect.top <= 0:
             self.kill()
 
-
+# Classe de drop de bombas pelo inimigo
 class Bomba(pygame.sprite.Sprite):
     vel = 9
     images = []
@@ -151,45 +144,33 @@ class Bomba(pygame.sprite.Sprite):
             Explosao(self)
             self.kill()
 
-
-class Score(pygame.sprite.Sprite):
-    def __init__(self):
-        pygame.sprite.Sprite.__init__(self)
-        self.font = pygame.font.Font(None, 24)
-        self.font.set_italic(1)
-        self.color = Color('red')
-        self.lastscore = -1
-        self.update()
-        self.rect = self.image.get_rect().move(10, 450)
-
-    def update(self):
-        if SCORE != self.lastscore:
-            self.lastscore = SCORE
-            msg = "Pontos: "+str(SCORE)
-            self.image = self.font.render(msg, 0, self.color)
-
+''' Dependendo da potuacao, determinadas configuracoes eh realizada 
+    de forma que aumente a dificuldade do jogo '''
 # Funcao responsavel pelo aumento da dificuldade
 def upLevelGame():
-    global MAX_TIROS, CURINGA_ODDS, BOMBA_ODDS
-    ''' Dependendo da potuacao, determinadas configuracoes eh realizada de forma que aumente
-    a dificuldade do jogo '''
+    global MAX_TIROS, CURINGA_ODDS, BOMBA_ODDS, STR_LEVEL
+    msg = "Level "+STR_LEVEL+": "+str(SCORE)+" pontos"
+    pygame.display.set_caption(msg)
     if SCORE == 50:
         if MAX_TIROS > 0 and BOMBA_ODDS <= 100:
             MAX_TIROS = MAX_TIROS - 1
             CURINGA_ODDS = CURINGA_ODDS + 5
             BOMBA_ODDS = BOMBA_ODDS + 10
+            STR_LEVEL = 'moderate'
 
     elif SCORE == 200:
         if MAX_TIROS > 0 and BOMBA_ODDS <= 100:
             MAX_TIROS = MAX_TIROS - 1
             CURINGA_ODDS = CURINGA_ODDS + 10
             BOMBA_ODDS = BOMBA_ODDS + 20
+            STR_LEVEL = 'hard'
     
     elif SCORE == 400:
         if MAX_TIROS > 0 and BOMBA_ODDS <= 100:
             MAX_TIROS = 1
             CURINGA_ODDS = CURINGA_ODDS + 11
             BOMBA_ODDS = 100
+            STR_LEVEL = 'insane'
     
 # Funcao responsavel pelo aumento da pontuacao
 def levelScore():
@@ -250,7 +231,6 @@ def main(winstyle = 0):
     Tiro.containers = tiros, all
     Bomba.containers = bombas, all
     Explosao.containers = all
-    Score.containers = all
 
     # Criando alguns valores iniciais
     global SCORE
@@ -259,8 +239,6 @@ def main(winstyle = 0):
     clock = pygame.time.Clock()
     player = Player()
     Curinga()
-    if pygame.font:
-        all.add(Score())
 
 
     while player.alive(): # loop enquanto o jogador estiver vivo
@@ -323,7 +301,6 @@ def main(winstyle = 0):
 
     pygame.time.wait(1000)
     pygame.quit()
-
 
 
 # Chama a funcao main no script de execucao principal
